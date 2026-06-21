@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>웃음대회</title>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            min-height: 100vh;
+            background: #12121e;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+            color: #fff;
+            padding: 24px 16px;
+            gap: 0;
+        }
+
+        /* ── 헤더 ── */
+        .header {
+            text-align: center;
+            margin-bottom: 22px;
+        }
+        .title-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+        .title {
+            font-size: 2.4rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+            color: #fff;
+        }
+        .live-dot {
+            width: 13px;
+            height: 13px;
+            background: #ff7600;
+            border-radius: 50%;
+            animation: blink 1.4s ease-in-out infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.4; transform: scale(0.75); }
+        }
+        .subtitle {
+            font-size: 0.92rem;
+            color: #7878a0;
+            letter-spacing: 0.2px;
+        }
+
+        /* ── 카메라 래퍼 ── */
+        .camera-wrapper {
+            position: relative;
+            width: 480px;
+            max-width: 100%;
+        }
+
+        #video-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #000;
+            border-radius: 22px;
+            overflow: hidden;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transform: scaleX(-1);
+        }
+        canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+        }
+
+        /* ── 로딩 오버레이 ── */
+        #loading {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 22px;
+            z-index: 30;
+            gap: 14px;
+        }
+        .spinner {
+            width: 42px; height: 42px;
+            border: 4px solid #2a2a40;
+            border-top-color: #ff7600;
+            border-radius: 50%;
+            animation: spin 0.75s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading-text { font-size: 0.9rem; color: #aaa; }
+
+        /* ── 점수 카드 (비디오 하단에 겹침) ── */
+        .score-card {
+            position: relative;
+            z-index: 20;
+            background: rgba(18, 18, 34, 0.93);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 18px;
+            margin: -28px 24px 0;
+            padding: 14px 28px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+        }
+        #emoji {
+            font-size: 2.6rem;
+            line-height: 1;
+            transition: all 0.25s;
+        }
+        .score-right {
+            display: flex;
+            flex-direction: column;
+        }
+        #score-number {
+            font-size: 3rem;
+            font-weight: 900;
+            line-height: 1;
+            color: #ff4444;
+            transition: color 0.35s ease;
+        }
+        #score-number .unit {
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+        #score-label {
+            font-size: 0.75rem;
+            color: #555577;
+            margin-top: 2px;
+        }
+
+        /* ── 피드백 문구 ── */
+        #feedback {
+            margin-top: 18px;
+            font-size: 0.97rem;
+            color: #8888aa;
+            text-align: center;
+            min-height: 22px;
+            transition: color 0.3s;
+            letter-spacing: 0.1px;
+        }
+
+        /* ── 진행 바 ── */
+        .progress-row {
+            margin-top: 16px;
+            width: 480px;
+            max-width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .bar-bg {
+            flex: 1;
+            height: 8px;
+            background: #242438;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 99px;
+            background: linear-gradient(to right, #ff3333 0%, #ff9800 50%, #4caf50 100%);
+            transition: width 0.18s ease;
+        }
+        .bar-pct {
+            font-size: 0.78rem;
+            color: #44445a;
+            width: 34px;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 헤더 -->
+    <div class="header">
+        <div class="title-row">
+            <h1 class="title">웃음대회</h1>
+            <div class="live-dot"></div>
+        </div>
+        <p class="subtitle">진짜로 활짝 웃어야 100점이 나옵니다!</p>
+    </div>
+
+    <!-- 카메라 + 점수 카드 -->
+    <div class="camera-wrapper">
+        <div id="video-container">
+            <video id="video" autoplay muted playsinline></video>
+            <canvas id="overlay"></canvas>
+            <div id="loading">
+                <div class="spinner"></div>
+                <div id="loading-text">AI 모델 불러오는 중...⏳</div>
+            </div>
+        </div>
+
+        <div class="score-card">
+            <div id="emoji">😑</div>
+            <div class="score-right">
+                <div id="score-number">--<span class="unit">점</span></div>
+                <div id="score-label">웃음 점수</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 피드백 -->
+    <div id="feedback">카메라를 허용하고 활짝 웃어보세요!</div>
+
+    <!-- 진행 바 -->
+    <div class="progress-row">
+        <div class="bar-bg">
+            <div class="bar-fill" id="bar-fill"></div>
+        </div>
+        <div class="bar-pct" id="bar-pct">0%</div>
+    </div>
+
+    <script>
+        const video      = document.getElementById('video');
+        const canvas     = document.getElementById('overlay');
+        const emojiEl    = document.getElementById('emoji');
+        const scoreEl    = document.getElementById('score-number');
+        const feedbackEl = document.getElementById('feedback');
+        const barFill    = document.getElementById('bar-fill');
+        const barPct     = document.getElementById('bar-pct');
+        const loading    = document.getElementById('loading');
+        const loadingTxt = document.getElementById('loading-text');
+
+        // CDN에서 모델 가중치 직접 로드 — models/ 폴더 업로드 불필요
+        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+
+        // 점수 구간별 이모지 / 색상 / 피드백
+        const TIERS = [
+            { min: 0,  emoji: '😑', color: '#ff3333', msg: '웃음기가 부족합니다. 활짝 웃어보세요!' },
+            { min: 15, emoji: '😐', color: '#ff5555', msg: '아직 부족해요. 조금만 더 웃어봐요!' },
+            { min: 30, emoji: '🙂', color: '#ff9800', msg: '살짝 웃음이 보여요! 더 크게!' },
+            { min: 50, emoji: '😊', color: '#ffc107', msg: '좋아요! 더 활짝 웃어볼까요? 😊' },
+            { min: 70, emoji: '😄', color: '#8bc34a', msg: '훌륭해요! 거의 다 왔어요! 💪' },
+            { min: 88, emoji: '🤣', color: '#4caf50', msg: '완벽한 웃음입니다! 최고! 🏆🎉' },
+        ];
+
+        function getTier(score) {
+            let result = TIERS[0];
+            for (const t of TIERS) { if (score >= t.min) result = t; }
+            return result;
+        }
+
+        // 지수 이동 평균으로 점수 부드럽게 (0.08 = 천천히, 높을수록 빠름)
+        let smoothedScore = 0;
+        const ALPHA = 0.08;
+
+        // 1. 모델 로드 → 웹캠 시작
+        Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
+        ]).then(() => {
+            loadingTxt.textContent = '카메라 연결 중...📷';
+            return navigator.mediaDevices.getUserMedia({ video: true });
+        }).then(stream => {
+            video.srcObject = stream;
+        }).catch(err => {
+            loadingTxt.textContent = '오류: ' + (err.message || err);
+            console.error(err);
+        });
+
+        // 2. 재생 시작 → 실시간 분석
+        video.addEventListener('play', () => {
+            loading.style.display = 'none';
+
+            const ctx = canvas.getContext('2d');
+
+            setInterval(async () => {
+                // 캔버스 크기를 비디오 해상도에 맞춤
+                if (canvas.width !== video.videoWidth)  canvas.width  = video.videoWidth;
+                if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+
+                const detections = await faceapi
+                    .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceExpressions();
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                if (!detections || detections.length === 0) {
+                    // 얼굴 없으면 점수를 천천히 0으로 내림
+                    smoothedScore = smoothedScore * (1 - ALPHA);
+                    const s = Math.round(smoothedScore);
+                    if (s < 2) {
+                        scoreEl.innerHTML = '--<span class="unit">점</span>';
+                        emojiEl.textContent = '🤔';
+                        feedbackEl.textContent = '얼굴이 인식되지 않아요. 카메라 앞에 서주세요!';
+                        barFill.style.width = '0%';
+                        barPct.textContent  = '0%';
+                    }
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    return;
+                }
+
+                const size    = { width: canvas.width, height: canvas.height };
+                const resized = faceapi.resizeResults(detections, size);
+                const happy   = detections[0].expressions.happy;
+                const rawScore = Math.round(happy * 100);
+
+                // 지수 이동 평균 적용
+                smoothedScore = smoothedScore * (1 - ALPHA) + rawScore * ALPHA;
+                const score = Math.round(smoothedScore);
+                const tier  = getTier(score);
+
+                // 얼굴 인식 박스
+                resized.forEach(d => {
+                    const b = d.detection.box;
+                    ctx.strokeStyle = tier.color;
+                    ctx.lineWidth   = 3;
+                    ctx.lineJoin    = 'round';
+                    ctx.strokeRect(b.x, b.y, b.width, b.height);
+
+                    // 박스 위 점수 레이블
+                    const label = `${score}점`;
+                    ctx.font      = 'bold 16px sans-serif';
+                    const tw = ctx.measureText(label).width;
+                    ctx.fillStyle = tier.color;
+                    ctx.fillRect(b.x - 1, b.y - 26, tw + 10, 22);
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText(label, b.x + 4, b.y - 9);
+                });
+
+                // UI 업데이트
+                scoreEl.innerHTML       = `${score}<span class="unit">점</span>`;
+                scoreEl.style.color     = tier.color;
+                emojiEl.textContent     = tier.emoji;
+                feedbackEl.textContent  = tier.msg;
+                barFill.style.width     = score + '%';
+                barPct.textContent      = score + '%';
+
+            }, 150);
+        });
+    </script>
+</body>
+</html>
