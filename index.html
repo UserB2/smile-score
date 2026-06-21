@@ -7,407 +7,367 @@
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
         body {
-            min-height: 100vh;
-            background: #12121e;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
+            min-height: 100vh; background: #12121e;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: flex-start;
             font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-            color: #fff;
-            padding: 24px 16px 32px;
+            color: #fff; padding: 20px 16px 40px;
         }
-
-        /* ── 헤더 ── */
-        .header { text-align: center; margin-bottom: 18px; }
-        .title-row {
-            display: flex; align-items: center; justify-content: center;
-            gap: 10px; margin-bottom: 6px;
-        }
+        .header { text-align: center; margin-bottom: 14px; }
+        .title-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 6px; }
         h1 { font-size: 2.4rem; font-weight: 900; letter-spacing: -1px; }
-        .live-dot {
-            width: 13px; height: 13px;
-            background: #ff7600; border-radius: 50%;
-            animation: blink 1.4s ease-in-out infinite;
-        }
-        @keyframes blink {
-            0%,100% { opacity:1; transform:scale(1); }
-            50%      { opacity:.4; transform:scale(.75); }
-        }
+        .live-dot { width: 13px; height: 13px; background: #ff7600; border-radius: 50%; animation: blink 1.4s ease-in-out infinite; }
+        @keyframes blink { 0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.75);} }
         .subtitle { font-size: .92rem; color: #7878a0; }
 
-        /* ── 카메라 ── */
+        /* Camera — wider */
         #video-container {
             position: relative;
-            width: 480px; max-width: 100%;
-            aspect-ratio: 4/3;
-            background: #000;
-            border-radius: 22px; overflow: hidden;
+            width: min(92vw, 640px); aspect-ratio: 4/3;
+            background: #000; border-radius: 22px; overflow: hidden;
             box-shadow: 0 24px 64px rgba(0,0,0,.6);
         }
-        video {
-            width: 100%; height: 100%;
-            object-fit: cover; display: block;
-            transform: scaleX(-1);
-        }
-        canvas {
-            position: absolute; top:0; left:0;
-            width: 100%; height: 100%;
-            transform: scaleX(-1);
-        }
+        video { width: 100%; height: 100%; object-fit: cover; display: block; transform: scaleX(-1); }
+        canvas { position: absolute; top:0; left:0; width:100%; height:100%; transform: scaleX(-1); }
 
-        /* ── 로딩 오버레이 ── */
+        /* Countdown badge on top-right of video */
+        #timer-badge {
+            position: absolute; top: 12px; right: 14px; z-index: 20;
+            background: rgba(0,0,0,.72); border: 2.5px solid #ff9800;
+            border-radius: 50%; width: 54px; height: 54px;
+            display: none; align-items: center; justify-content: center;
+            font-size: 1.55rem; font-weight: 900; color: #ff9800;
+        }
+        #timer-badge.active { display: flex; }
+        #timer-badge.urgent { color: #ff3333; border-color: #ff3333; animation: tbpulse .5s ease-in-out infinite; }
+        @keyframes tbpulse { 0%,100%{transform:scale(1);}50%{transform:scale(1.12);} }
+
+        /* Loading */
         #loading {
-            position: absolute; inset: 0;
-            background: rgba(0,0,0,.78);
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
+            position: absolute; inset: 0; background: rgba(0,0,0,.78);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
             border-radius: 22px; z-index: 30; gap: 14px;
         }
-        .spinner {
-            width: 42px; height: 42px;
-            border: 4px solid #2a2a40; border-top-color: #ff7600;
-            border-radius: 50%;
-            animation: spin .75s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { width: 42px; height: 42px; border: 4px solid #2a2a40; border-top-color: #ff7600; border-radius: 50%; animation: spin .75s linear infinite; }
+        @keyframes spin { to{transform:rotate(360deg);} }
         #loading-text { font-size: .9rem; color: #aaa; }
 
-        /* ── 멀티 멘트 ── */
-        #multi-comment {
-            min-height: 22px; margin-top: 14px;
-            font-size: .92rem; color: #ff9800;
-            text-align: center;
-            transition: opacity .4s;
+        /* Start button */
+        .main-btn {
+            background: linear-gradient(135deg, #ff7600, #ff3300);
+            color: #fff; border: none; border-radius: 14px;
+            padding: 13px 40px; font-size: 1.05rem; font-weight: 700;
+            cursor: pointer; box-shadow: 0 4px 20px rgba(255,100,0,.4);
+            transition: transform .15s, opacity .15s;
         }
+        .main-btn:active { transform: scale(.96); opacity: .85; }
+        #start-btn { display: none; margin-top: 14px; }
+        #start-btn.visible { display: block; }
 
-        /* ── 점수 카드 영역 ── */
-        .scores-area {
-            width: 480px; max-width: 100%;
-        }
-        #scores-row {
-            display: flex; gap: 10px; justify-content: center;
-        }
+        /* Multi comment */
+        #multi-comment { min-height: 22px; margin-top: 10px; font-size: .92rem; color: #ff9800; text-align: center; }
 
-        /* 공통 카드 스타일 */
+        /* Score cards */
+        .scores-area { width: min(92vw, 640px); }
+        #scores-row { display: flex; gap: 10px; justify-content: center; }
         .score-card {
-            flex: 1;
-            background: rgba(20,20,35,.93);
+            flex: 1; background: rgba(20,20,35,.93);
             backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
             border-radius: 16px; padding: 14px 18px;
             display: flex; align-items: center; gap: 12px;
-            box-shadow: 0 8px 32px rgba(0,0,0,.4);
-            position: relative; min-width: 0;
+            box-shadow: 0 8px 32px rgba(0,0,0,.4); position: relative; min-width: 0;
         }
-        .card-emoji { font-size: 2rem; flex-shrink: 0; transition: all .25s; }
-        .card-right  { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+        .card-emoji { font-size: 2rem; flex-shrink: 0; }
+        .card-right { display: flex; flex-direction: column; min-width: 0; flex: 1; }
         .card-person { font-size: .68rem; color: #555577; margin-bottom: 1px; }
-        .card-score  {
-            font-size: 2.2rem; font-weight: 900; line-height: 1;
-            color: #ff4444; transition: color .35s;
-            white-space: nowrap;
-        }
+        .card-score { font-size: 2.2rem; font-weight: 900; line-height: 1; color: #ff4444; transition: color .35s; white-space: nowrap; }
         .card-score .unit { font-size: 1rem; font-weight: 600; }
         .card-bar-wrap { margin-top: 5px; height: 5px; background: #1e1e30; border-radius: 3px; overflow: hidden; }
-        .card-bar { height: 100%; width: 0%; border-radius: 3px;
-            background: linear-gradient(to right, #ff3333, #ff9800, #4caf50);
-            transition: width .2s ease; }
+        .card-bar { height: 100%; width: 0%; border-radius: 3px; background: linear-gradient(to right, #ff3333, #ff9800, #4caf50); transition: width .2s ease; }
         .crown { position: absolute; top: -12px; right: 10px; font-size: 1.3rem; display: none; }
 
-        /* 1인 모드: 카드가 비디오 하단에 겹침 */
         #scores-row.single { margin-top: -26px; }
-        #scores-row.single .score-card {
-            position: relative; z-index: 10;
-            padding: 16px 24px;
-        }
-        #scores-row.single .card-emoji  { font-size: 2.6rem; }
-        #scores-row.single .card-score  { font-size: 3rem; }
+        #scores-row.single .score-card { position: relative; z-index: 10; padding: 16px 24px; }
+        #scores-row.single .card-emoji { font-size: 2.6rem; }
+        #scores-row.single .card-score { font-size: 3rem; }
         #scores-row.single .card-person { display: none; }
+        #scores-row.multi { margin-top: 10px; }
 
-        /* 다인 모드 */
-        #scores-row.multi  { margin-top: 10px; }
-
-        /* ── 1인 전용: 피드백 + 진행 바 ── */
-        #feedback {
-            margin-top: 14px; font-size: .97rem; color: #8888aa;
-            text-align: center; min-height: 22px;
-            transition: opacity .3s;
-        }
-        .progress-row {
-            margin-top: 14px;
-            width: 480px; max-width: 100%;
-            display: flex; align-items: center; gap: 10px;
-        }
+        #feedback { margin-top: 14px; font-size: .97rem; color: #8888aa; text-align: center; min-height: 22px; }
+        .progress-row { margin-top: 14px; width: min(92vw, 640px); display: flex; align-items: center; gap: 10px; }
         .bar-bg { flex: 1; height: 8px; background: #242438; border-radius: 99px; overflow: hidden; }
-        .bar-fill {
-            height: 100%; width: 0%; border-radius: 99px;
-            background: linear-gradient(to right, #ff3333 0%, #ff9800 50%, #4caf50 100%);
-            transition: width .2s ease;
-        }
+        .bar-fill { height: 100%; width: 0%; border-radius: 99px; background: linear-gradient(to right, #ff3333 0%, #ff9800 50%, #4caf50 100%); transition: width .2s ease; }
         .bar-pct { font-size: .78rem; color: #44445a; width: 34px; text-align: right; }
+
+        /* Result screen */
+        #result-screen {
+            display: none; flex-direction: column; align-items: center;
+            width: min(92vw, 640px);
+            background: rgba(18,18,30,.98);
+            border-radius: 22px; padding: 22px 20px 26px;
+            box-shadow: 0 16px 48px rgba(0,0,0,.7);
+            margin-top: 14px;
+        }
+        #result-screen.visible { display: flex; }
+        .result-title { font-size: 1.1rem; font-weight: 700; color: #888; margin-bottom: 14px; }
+        #result-frame { width: 100%; border-radius: 14px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+        #result-img { width: 100%; display: block; }
+        .result-big { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+        #result-emoji-el { font-size: 3.5rem; line-height: 1; }
+        #result-score-el { font-size: 4.5rem; font-weight: 900; line-height: 1; transition: color .3s; }
+        .result-unit { font-size: 1.5rem; font-weight: 600; }
+        #result-msg { font-size: .97rem; color: #ccccee; text-align: center; margin-bottom: 22px; line-height: 1.65; }
     </style>
 </head>
 <body>
-
     <div class="header">
-        <div class="title-row">
-            <h1>웃음대회</h1>
-            <div class="live-dot"></div>
-        </div>
+        <div class="title-row"><h1>웃음대회</h1><div class="live-dot"></div></div>
         <p class="subtitle">진짜로 활짝 웃어야 100점이 나옵니다!</p>
     </div>
 
     <div id="video-container">
         <video id="video" autoplay muted playsinline></video>
         <canvas id="overlay"></canvas>
-        <div id="loading">
-            <div class="spinner"></div>
-            <div id="loading-text">AI 모델 불러오는 중...⏳</div>
-        </div>
+        <div id="timer-badge"></div>
+        <div id="loading"><div class="spinner"></div><div id="loading-text">AI 모델 불러오는 중...⏳</div></div>
     </div>
+
+    <button id="start-btn" class="main-btn">🎯 15초 측정 시작</button>
 
     <div id="multi-comment"></div>
-
-    <div class="scores-area">
-        <div id="scores-row" class="single"></div>
-    </div>
-
+    <div class="scores-area"><div id="scores-row" class="single"></div></div>
     <div id="feedback">카메라를 허용하고 활짝 웃어보세요!</div>
-
     <div class="progress-row" id="progress-row">
         <div class="bar-bg"><div class="bar-fill" id="bar-fill"></div></div>
         <div class="bar-pct" id="bar-pct">0%</div>
     </div>
 
+    <div id="result-screen">
+        <div class="result-title">🏆 내 최고 웃음 순간</div>
+        <div id="result-frame"><img id="result-img" src="" alt="best smile"></div>
+        <div class="result-big">
+            <span id="result-emoji-el">😄</span>
+            <div id="result-score-el">0<span class="result-unit">점</span></div>
+        </div>
+        <div id="result-msg"></div>
+        <button class="main-btn" id="retry-btn">🔄 다시 도전</button>
+    </div>
+
     <script>
-    const video       = document.getElementById('video');
-    const canvas      = document.getElementById('overlay');
-    const loading     = document.getElementById('loading');
-    const loadingTxt  = document.getElementById('loading-text');
-    const scoresRow   = document.getElementById('scores-row');
-    const multiCmt    = document.getElementById('multi-comment');
-    const feedbackEl  = document.getElementById('feedback');
-    const progressRow = document.getElementById('progress-row');
-    const barFill     = document.getElementById('bar-fill');
-    const barPct      = document.getElementById('bar-pct');
+    const video=document.getElementById('video'), canvas=document.getElementById('overlay'),
+          loading=document.getElementById('loading'), loadingTxt=document.getElementById('loading-text'),
+          scoresRow=document.getElementById('scores-row'), multiCmt=document.getElementById('multi-comment'),
+          feedbackEl=document.getElementById('feedback'), progressRow=document.getElementById('progress-row'),
+          barFill=document.getElementById('bar-fill'), barPct=document.getElementById('bar-pct'),
+          startBtn=document.getElementById('start-btn'), timerBadge=document.getElementById('timer-badge'),
+          resultScreen=document.getElementById('result-screen'), resultImg=document.getElementById('result-img'),
+          resultEmojiEl=document.getElementById('result-emoji-el'), resultScoreEl=document.getElementById('result-score-el'),
+          resultMsg=document.getElementById('result-msg'), retryBtn=document.getElementById('retry-btn');
 
-    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-    const MAX_FACES = 3;
-    const ALPHA     = 0.08; // 낮을수록 점수가 천천히 변함
+    const MODEL_URL='https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+    const MAX_FACES=3, ALPHA=0.08, MEASURE_SEC=15;
 
-    const TIERS = [
-        { min:  0, emoji:'😑', color:'#ff3333', msg:'웃음기가 부족합니다. 활짝 웃어보세요!' },
-        { min: 15, emoji:'😐', color:'#ff5555', msg:'아직 부족해요. 조금만 더 웃어봐요!' },
-        { min: 30, emoji:'🙂', color:'#ff9800', msg:'살짝 웃음이 보여요! 더 크게!' },
-        { min: 50, emoji:'😊', color:'#ffc107', msg:'좋아요! 더 활짝 웃어볼까요? 😊' },
-        { min: 70, emoji:'😄', color:'#8bc34a', msg:'훌륭해요! 거의 다 왔어요! 💪' },
-        { min: 88, emoji:'🤣', color:'#4caf50', msg:'완벽한 웃음입니다! 최고! 🏆🎉' },
+    const TIERS=[
+        {min:0,  emoji:'😑', color:'#ff3333', msg:'웃음기가 부족합니다. 활짝 웃어보세요!'},
+        {min:15, emoji:'😐', color:'#ff5555', msg:'아직 부족해요. 조금만 더 웃어봐요!'},
+        {min:30, emoji:'🙂', color:'#ff9800', msg:'살짝 웃음이 보여요! 더 크게!'},
+        {min:50, emoji:'😊', color:'#ffc107', msg:'좋아요! 더 활짝 웃어볼까요? 😊'},
+        {min:70, emoji:'😄', color:'#8bc34a', msg:'훌륭해요! 거의 다 왔어요! 💪'},
+        {min:88, emoji:'🤣', color:'#4caf50', msg:'완벽한 웃음입니다! 최고! 🏆🎉'},
     ];
-
-    const MULTI_MSGS = {
-        2: [
-            '두 분 중 한 분은 오늘 특별히 더 좋은 일이 있는 것 같은데요! 😏',
-            '두 분 다 함께 웃어보세요! 같이 웃으면 더 예뻐요 ✨',
-            '웃음 대결! 두 분 중 승자는 누구일까요? 🏆',
-            '두 분 모두 더 크게 웃으면 100점이 나온다구요! 😄',
-        ],
-        3: [
-            '세 분 모두 환하게 웃어보세요! 🎉',
-            '세 분 중 오늘의 웃음왕은 누구일까요? 👑',
-            '셋이 함께 웃으면 행복도 세 배! 😄😄😄',
-            '세 분 모두 파이팅! 100점에 도전해봐요! 🔥',
-        ],
+    const RESULT_MSGS=[
+        {min:0,  msg:'조금 더 크게 웃어봐요! 다음엔 더 잘할 수 있어요 😊'},
+        {min:30, msg:'꽤 괜찮은 웃음이에요! 조금 더 연습하면 완벽해질 거예요 🙂'},
+        {min:50, msg:'훌륭한 웃음이에요! 행복이 느껴집니다 😄'},
+        {min:70, msg:'정말 멋진 미소예요! 주변 사람들도 행복해지겠는걸요 😄✨'},
+        {min:88, msg:'완벽한 웃음입니다! 당신은 웃음 장인! 🏆🎉 최고예요!'},
+    ];
+    const MULTI_MSGS={
+        2:['두 분 중 한 분은 오늘 특별히 더 좋은 일이 있는 것 같은데요! 😏','두 분 다 함께 웃어보세요! 같이 웃으면 더 예뻐요 ✨','웃음 대결! 두 분 중 승자는 누구일까요? 🏆','두 분 모두 더 크게 웃으면 100점이 나온다구요! 😄'],
+        3:['세 분 모두 환하게 웃어보세요! 🎉','세 분 중 오늘의 웃음왕은 누구일까요? 👑','셋이 함께 웃으면 행복도 세 배! 😄😄😄','세 분 모두 파이팅! 100점에 도전해봐요! 🔥'],
     };
+    const BOX_COLORS=['#ffffff','#00e5ff','#ea80fc'], LABELS=['1번','2번','3번'];
 
-    // 얼굴별 박스 색상 (1·2·3번)
-    const BOX_COLORS = ['#ffffff', '#00e5ff', '#ea80fc'];
-    const LABELS     = ['1번', '2번', '3번'];
+    function getTier(s){let t=TIERS[0];for(const x of TIERS){if(s>=x.min)t=x;}return t;}
+    function getResultMsg(s){let m=RESULT_MSGS[0];for(const x of RESULT_MSGS){if(s>=x.min)m=x;}return m.msg;}
 
-    function getTier(s) {
-        let t = TIERS[0];
-        for (const tier of TIERS) { if (s >= tier.min) t = tier; }
-        return t;
+    let smoothed=[0,0,0], prevCount=-1;
+    let cmtTimer=null, cmtIdx={2:0,3:0};
+    let measuring=false, measureStart=0, bestScore=0, bestFrame=null;
+    let captureCanvas=null;
+
+    function startCmt(n){
+        if(cmtTimer)clearInterval(cmtTimer);
+        const m=MULTI_MSGS[n]; if(!m)return;
+        cmtIdx[n]=0; multiCmt.textContent=m[0];
+        cmtTimer=setInterval(()=>{cmtIdx[n]=(cmtIdx[n]+1)%m.length;multiCmt.textContent=m[cmtIdx[n]];},4000);
     }
+    function stopCmt(){if(cmtTimer){clearInterval(cmtTimer);cmtTimer=null;}multiCmt.textContent='';}
 
-    // ── 점수 스무딩 상태 ──
-    let smoothed = [0, 0, 0];
-
-    // ── 멀티 멘트 타이머 ──
-    let cmtTimer = null;
-    let cmtIdx   = { 2: 0, 3: 0 };
-
-    function startCommentRotation(count) {
-        if (cmtTimer) clearInterval(cmtTimer);
-        const msgs = MULTI_MSGS[count];
-        if (!msgs) return;
-        cmtIdx[count] = 0;
-        multiCmt.textContent = msgs[0];
-        cmtTimer = setInterval(() => {
-            cmtIdx[count] = (cmtIdx[count] + 1) % msgs.length;
-            multiCmt.textContent = msgs[cmtIdx[count]];
-        }, 4000);
-    }
-    function stopCommentRotation() {
-        if (cmtTimer) { clearInterval(cmtTimer); cmtTimer = null; }
-        multiCmt.textContent = '';
-    }
-
-    // ── 카드 DOM 빌드 ──
-    function buildCard(i) {
-        const c = document.createElement('div');
-        c.className = 'score-card';
-        c.innerHTML = `
-            <span class="crown" id="crown-${i}">👑</span>
-            <div class="card-emoji" id="emoji-${i}">😑</div>
-            <div class="card-right">
-                <div class="card-person">${LABELS[i]}님</div>
-                <div class="card-score" id="cscore-${i}">--<span class="unit">점</span></div>
-                <div class="card-bar-wrap"><div class="card-bar" id="cbar-${i}"></div></div>
-            </div>`;
+    function buildCard(i){
+        const c=document.createElement('div'); c.className='score-card';
+        c.innerHTML=`<span class="crown" id="crown-${i}">👑</span><div class="card-emoji" id="emoji-${i}">😑</div><div class="card-right"><div class="card-person">${LABELS[i]}님</div><div class="card-score" id="cscore-${i}">--<span class="unit">점</span></div><div class="card-bar-wrap"><div class="card-bar" id="cbar-${i}"></div></div></div>`;
         return c;
     }
 
-    // ── 이전 얼굴 수 ──
-    let prevCount = -1;
-
-    function rebuildLayout(count) {
-        scoresRow.innerHTML = '';
-        for (let i = 0; i < count; i++) scoresRow.appendChild(buildCard(i));
-
-        scoresRow.className   = count === 1 ? 'single' : 'multi';
-        feedbackEl.style.display    = count === 1 ? '' : 'none';
-        progressRow.style.display   = count === 1 ? '' : 'none';
-
-        if (count >= 2) startCommentRotation(count);
-        else            stopCommentRotation();
+    function rebuildLayout(count){
+        scoresRow.innerHTML='';
+        for(let i=0;i<count;i++) scoresRow.appendChild(buildCard(i));
+        scoresRow.className=count===1?'single':'multi';
+        feedbackEl.style.display=count===1?'':'none';
+        progressRow.style.display=count===1?'':'none';
+        if(count>=2)startCmt(count); else stopCmt();
     }
 
-    function updateUI(faces) {
-        const count = faces.length;
-        if (count !== prevCount) { rebuildLayout(count); prevCount = count; }
-
-        const winnerIdx = faces.reduce((b, f, i) => f.score > faces[b].score ? i : b, 0);
-
-        faces.forEach((f, i) => {
-            const tier = getTier(f.score);
-            document.getElementById(`emoji-${i}`).textContent = tier.emoji;
-
-            const sc = document.getElementById(`cscore-${i}`);
-            sc.innerHTML    = `${f.score}<span class="unit">점</span>`;
-            sc.style.color  = tier.color;
-
-            document.getElementById(`cbar-${i}`).style.width = f.score + '%';
-
-            const crown = document.getElementById(`crown-${i}`);
-            if (crown) crown.style.display = (count > 1 && i === winnerIdx && f.score > 5) ? 'block' : 'none';
-
-            if (count === 1) {
-                feedbackEl.textContent = tier.msg;
-                barFill.style.width    = f.score + '%';
-                barPct.textContent     = f.score + '%';
-            }
+    function updateUI(faces){
+        const count=faces.length;
+        if(count!==prevCount){rebuildLayout(count);prevCount=count;}
+        const wi=faces.reduce((b,f,i)=>f.score>faces[b].score?i:b,0);
+        faces.forEach((f,i)=>{
+            const tier=getTier(f.score);
+            document.getElementById(`emoji-${i}`).textContent=tier.emoji;
+            const sc=document.getElementById(`cscore-${i}`);
+            sc.innerHTML=`${f.score}<span class="unit">점</span>`; sc.style.color=tier.color;
+            document.getElementById(`cbar-${i}`).style.width=f.score+'%';
+            const cr=document.getElementById(`crown-${i}`);
+            if(cr) cr.style.display=(count>1&&i===wi&&f.score>5)?'block':'none';
+            if(count===1){feedbackEl.textContent=tier.msg;barFill.style.width=f.score+'%';barPct.textContent=f.score+'%';}
         });
     }
 
-    // ── 모델 로드 → 웹캠 시작 ──
+    function captureFrame(){
+        if(!captureCanvas) captureCanvas=document.createElement('canvas');
+        captureCanvas.width=video.videoWidth;
+        captureCanvas.height=video.videoHeight;
+        const c=captureCanvas.getContext('2d');
+        // Draw mirrored video
+        c.save(); c.translate(captureCanvas.width,0); c.scale(-1,1);
+        c.drawImage(video,0,0,captureCanvas.width,captureCanvas.height); c.restore();
+        // Draw mirrored canvas overlay (pixel data is unmirrored, so mirror here too)
+        c.save(); c.translate(captureCanvas.width,0); c.scale(-1,1);
+        c.drawImage(canvas,0,0,captureCanvas.width,captureCanvas.height); c.restore();
+        return captureCanvas.toDataURL('image/jpeg',0.85);
+    }
+
+    function showResult(){
+        measuring=false;
+        timerBadge.className='';
+        startBtn.classList.remove('visible');
+        document.querySelector('.scores-area').style.display='none';
+        feedbackEl.style.display='none';
+        progressRow.style.display='none';
+        multiCmt.style.display='none';
+
+        const tier=getTier(bestScore);
+        if(bestFrame){ resultImg.src=bestFrame; resultImg.style.display=''; }
+        else resultImg.style.display='none';
+        resultEmojiEl.textContent=tier.emoji;
+        resultScoreEl.innerHTML=`${bestScore}<span class="result-unit">점</span>`;
+        resultScoreEl.style.color=tier.color;
+        resultMsg.textContent=getResultMsg(bestScore);
+        resultScreen.classList.add('visible');
+    }
+
+    retryBtn.addEventListener('click',()=>{
+        resultScreen.classList.remove('visible');
+        document.querySelector('.scores-area').style.display='';
+        multiCmt.style.display='';
+        bestScore=0; bestFrame=null;
+        smoothed=[0,0,0]; prevCount=-1;
+        rebuildLayout(1);
+        startBtn.classList.add('visible');
+    });
+
+    startBtn.addEventListener('click',()=>{
+        if(measuring) return;
+        measuring=true; bestScore=0; bestFrame=null;
+        measureStart=performance.now();
+        startBtn.classList.remove('visible');
+        timerBadge.textContent=MEASURE_SEC;
+        timerBadge.className='active';
+    });
+
     Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-    ]).then(() => {
-        loadingTxt.textContent = '카메라 연결 중...📷';
-        return navigator.mediaDevices.getUserMedia({ video: true });
-    }).then(stream => {
-        video.srcObject = stream;
-    }).catch(err => {
-        loadingTxt.textContent = '오류: ' + (err.message || err);
-    });
+    ]).then(()=>{loadingTxt.textContent='카메라 연결 중...📷';return navigator.mediaDevices.getUserMedia({video:true});})
+    .then(stream=>{video.srcObject=stream;})
+    .catch(err=>{loadingTxt.textContent='오류: '+(err.message||err);});
 
-    // ── 실시간 분석 루프 ──
-    video.addEventListener('play', () => {
-        loading.style.display = 'none';
-        const ctx = canvas.getContext('2d');
+    video.addEventListener('play',()=>{
+        loading.style.display='none';
+        startBtn.classList.add('visible');
+        const ctx=canvas.getContext('2d');
 
-        setInterval(async () => {
-            if (canvas.width  !== video.videoWidth)  canvas.width  = video.videoWidth;
-            if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+        setInterval(async()=>{
+            if(canvas.width!==video.videoWidth) canvas.width=video.videoWidth;
+            if(canvas.height!==video.videoHeight) canvas.height=video.videoHeight;
 
-            const detections = await faceapi
-                .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
-                .withFaceExpressions();
+            // Timer countdown
+            if(measuring){
+                const rem=Math.ceil(MEASURE_SEC-(performance.now()-measureStart)/1000);
+                if(rem<=0){showResult();return;}
+                timerBadge.textContent=rem;
+                timerBadge.className=rem<=5?'active urgent':'active';
+            }
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const detections=await faceapi.detectAllFaces(video,new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+            ctx.clearRect(0,0,canvas.width,canvas.height);
 
-            if (!detections || detections.length === 0) {
-                // 얼굴 없으면 점수를 서서히 0으로
-                smoothed = smoothed.map(s => s * (1 - ALPHA));
-                if (Math.max(...smoothed) < 2 && prevCount !== 0) {
-                    prevCount = 0;
-                    rebuildLayout(1);
-                    document.getElementById('cscore-0').innerHTML = '--<span class="unit">점</span>';
-                    document.getElementById('emoji-0').textContent = '🤔';
-                    feedbackEl.textContent = '얼굴이 인식되지 않아요. 카메라 앞에 서주세요!';
-                    barFill.style.width = '0%';
-                    barPct.textContent  = '0%';
+            if(!detections||detections.length===0){
+                smoothed=smoothed.map(s=>s*(1-ALPHA));
+                if(Math.max(...smoothed)<2&&prevCount!==0){
+                    prevCount=0; rebuildLayout(1);
+                    document.getElementById('cscore-0').innerHTML='--<span class="unit">점</span>';
+                    document.getElementById('emoji-0').textContent='🤔';
+                    feedbackEl.textContent='얼굴이 인식되지 않아요. 카메라 앞에 서주세요!';
+                    barFill.style.width='0%'; barPct.textContent='0%';
                 }
                 return;
             }
 
-            // 왼쪽→오른쪽 정렬, 최대 3명
-            const sorted  = [...detections]
-                .sort((a, b) => a.detection.box.x - b.detection.box.x)
-                .slice(0, MAX_FACES);
+            const sorted=[...detections].sort((a,b)=>a.detection.box.x-b.detection.box.x).slice(0,MAX_FACES);
+            const resized=faceapi.resizeResults(sorted,{width:canvas.width,height:canvas.height});
 
-            const resized = faceapi.resizeResults(sorted, { width: canvas.width, height: canvas.height });
-
-            // EMA 스무딩
-            const faces = sorted.map((d, i) => {
-                const raw   = Math.round(d.expressions.happy * 100);
-                smoothed[i] = smoothed[i] * (1 - ALPHA) + raw * ALPHA;
-                return { score: Math.round(smoothed[i]) };
+            const faces=sorted.map((d,i)=>{
+                const raw=Math.round(d.expressions.happy*100);
+                smoothed[i]=smoothed[i]*(1-ALPHA)+raw*ALPHA;
+                return{score:Math.round(smoothed[i])};
             });
-            for (let i = sorted.length; i < 3; i++) {
-                smoothed[i] = smoothed[i] * (1 - ALPHA);
+            for(let i=sorted.length;i<3;i++) smoothed[i]=smoothed[i]*(1-ALPHA);
+
+            // Track peak score + snapshot
+            if(measuring){
+                const top=Math.max(...faces.map(f=>f.score));
+                if(top>bestScore){bestScore=top;bestFrame=captureFrame();}
             }
 
-            // 얼굴 박스 + 이름/점수 레이블 그리기
-            const winnerIdx = faces.reduce((b, f, i) => f.score > faces[b].score ? i : b, 0);
-            resized.forEach((d, i) => {
-                const b    = d.detection.box;
-                const col  = BOX_COLORS[i];
-                const tier = getTier(faces[i].score);
+            // Draw face boxes — padded to cover full face including forehead
+            const wi=faces.reduce((b,f,i)=>f.score>faces[b].score?i:b,0);
+            resized.forEach((d,i)=>{
+                const b=d.detection.box, col=BOX_COLORS[i];
+                const px=b.width*0.25, ptop=b.height*0.40, pbot=b.height*0.10;
+                const bx=Math.max(0,b.x-px), by=Math.max(0,b.y-ptop);
+                const bw=Math.min(canvas.width-bx,b.width+px*2), bh=Math.min(canvas.height-by,b.height+ptop+pbot);
 
-                // 박스
-                ctx.strokeStyle = col;
-                ctx.lineWidth   = 3;
-                ctx.lineJoin    = 'round';
-                ctx.strokeRect(b.x, b.y, b.width, b.height);
+                ctx.strokeStyle=col; ctx.lineWidth=3; ctx.lineJoin='round';
+                ctx.strokeRect(bx,by,bw,bh);
 
-                // 레이블 배경 + 글자
-                const label = sorted.length > 1
-                    ? `${LABELS[i]} ${faces[i].score}점`
-                    : `${faces[i].score}점`;
-                ctx.font = 'bold 15px sans-serif';
-                const tw = ctx.measureText(label).width;
+                const label=sorted.length>1?`${LABELS[i]} ${faces[i].score}점`:`${faces[i].score}점`;
+                ctx.font='bold 15px sans-serif';
+                const tw=ctx.measureText(label).width;
+                ctx.globalAlpha=0.82; ctx.fillStyle=col;
+                ctx.fillRect(bx,by-26,tw+12,22); ctx.globalAlpha=1;
+                ctx.fillStyle='#000'; ctx.fillText(label,bx+6,by-9);
 
-                ctx.globalAlpha = 0.82;
-                ctx.fillStyle   = col;
-                ctx.fillRect(b.x, b.y - 26, tw + 12, 22);
-                ctx.globalAlpha = 1;
-
-                ctx.fillStyle = '#000';
-                ctx.fillText(label, b.x + 6, b.y - 9);
-
-                // 왕관 (1등 표시, 다인 모드)
-                if (sorted.length > 1 && i === winnerIdx && faces[i].score > 5) {
-                    ctx.font = '20px sans-serif';
-                    ctx.fillText('👑', b.x + b.width / 2 - 10, b.y - 30);
+                if(sorted.length>1&&i===wi&&faces[i].score>5){
+                    ctx.font='20px sans-serif'; ctx.fillText('👑',bx+bw/2-10,by-30);
                 }
             });
 
             updateUI(faces);
-        }, 150);
+        },150);
     });
     </script>
 </body>
